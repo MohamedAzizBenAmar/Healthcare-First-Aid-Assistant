@@ -1,148 +1,167 @@
+<div align="center">
+
 # 🩺 Healthcare & First Aid Assistant
 
-An interactive Streamlit application that functions as a healthcare & first‑aid oriented assistant. It lets you upload medical / first aid PDF documents (guidelines, manuals, protocols), builds a local semantic index with embeddings, and answers user questions conversationally. When the retrieved document context is weak or insufficient, it automatically falls back to live web search via Tavily to enrich the answer. A variant (`appWithEvaluation.py`) also auto‑generates QA examples from the ingested content and evaluates answer quality.
+Conversational Retrieval‑Augmented Generation (RAG) app for healthcare & first‑aid reference material. Upload trusted medical / first‑aid PDFs, ask natural language questions, and get grounded answers. When local context is weak, the system enriches responses with a targeted web search (Tavily). An evaluation mode can auto‑generate QA pairs and score answer quality.
 
-> Disclaimer: This tool does NOT provide personalized medical diagnosis or treatment. Always consult a qualified healthcare professional for medical decisions.
+</div>
 
-## ✅ Key Features
-- PDF ingestion & parsing (via `PyPDFLoader`).
-- Chunking & semantic embedding (`RecursiveCharacterTextSplitter` + `GoogleGenerativeAIEmbeddings`).
-- Vector similarity search using `Chroma`.
-- Conversational retrieval with memory (`ConversationBufferMemory`).
-- Automatic web fallback powered by `TavilySearch` when answer quality heuristics trigger.
-- Gemini 1.5 Flash (`ChatGoogleGenerativeAI`) as the LLM for answers & evaluation.
-- Evaluation variant (`appWithEvaluation.py`) using `QAGenerateChain` + `QAEvalChain` to:
-  - Generate synthetic QA pairs from your uploaded documents.
-  - Run the conversational retrieval chain.
-  - Grade predicted answers for quick quality insights.
+> DISCLAIMER: Educational support only. Not a source of diagnosis, treatment, or emergency decision‑making. Always consult qualified healthcare professionals.
 
-## 🗂 Project Files
-| File | Purpose |
-|------|---------|
-| `app.py` | Main conversational assistant with PDF upload + Tavily fallback.
-| `app1.py` | Simplified earlier variant (similar logic, fewer heuristics). |
-| `app2.py` | Near duplicate of `app.py` (alternative experimentation). |
-| `appWithEvaluation.py` | Adds automated QA generation & evaluation UI section. |
-| `requirements.txt` | Python dependencies (framework + LangChain ecosystem). |
+---
 
-All active assistant variants follow the same pipeline: Upload PDFs → Split → Embed → Store in Chroma → Chat with retrieval + memory → Optional web fallback.
+## 1. Why This Project Matters (Recruiter Snapshot)
+- Demonstrates end‑to‑end RAG design (ingestion → chunking → embedding → retrieval → conversation → fallback search).
+- Shows practical use of Google Gemini (chat + embeddings) integrated with LangChain Classic.
+- Implements quality heuristics and dynamic search fallback (Tavily) for robustness.
+- Includes automated answer evaluation (synthetic QA generation + grading pipeline).
+- Highlights engineering decisions: lean architecture, modularity, environment isolation, prompt design, conversational state management.
 
-## 🧱 Architecture Overview
-1. **Upload PDFs**: User selects one or more PDF files via Streamlit.
-2. **Load & Split**: Each PDF is loaded (`PyPDFLoader`) and chunked (`RecursiveCharacterTextSplitter`, size 1000, overlap 200).
-3. **Filter (evaluation app)**: `appWithEvaluation.py` filters out trivial / empty chunks.
-4. **Embedding**: Chunks embedded with Google Generative AI embeddings model: `models/embedding-001`.
-5. **Vector Store**: Stored in a transient in‑memory / local `Chroma` instance.
-6. **Retriever**: Top‐k similarity search (`k=3`).
-7. **Prompting**: Custom system prompt injects: conversation history, retrieved context, user question.
-8. **LLM Answer**: Gemini 1.5 Flash generates the answer.
-9. **Fallback Logic**: If heuristics detect low‑quality / insufficient answers (short length, phrases like “I don’t know”), perform `TavilySearch` and append web snippet.
-10. **Memory**: `ConversationBufferMemory` persists dialogue state so follow‑ups retain prior user details.
-11. **Evaluation (optional)**: Generate QA pairs from document text and grade predictions.
+---
 
-## 🔧 Tech Stack
-- **UI**: Streamlit
-- **LLM & Embeddings**: Google Gemini (`langchain-google-genai`)
-- **Retrieval**: Chroma vector store (`chromadb`)
-- **Framework**: LangChain Classic abstraction layer (`langchain_classic`)
-- **Web Search**: Tavily (`langchain-tavily` + `tavily-python`)
-- **Document Loading**: `pypdf` via `PyPDFLoader`
-- **Async Compatibility**: `nest-asyncio` to prevent event loop conflicts in Streamlit
+## 2. Core Features
+- PDF ingestion & parsing (`PyPDFLoader`).
+- Chunking with overlap (`RecursiveCharacterTextSplitter`, 1000 / 200).
+- Embeddings via Google Generative AI (`models/embedding-001`).
+- Vector similarity search (`Chroma`).
+- Conversational Retrieval (`ConversationalRetrievalChain`) + dialogue memory (`ConversationBufferMemory`).
+- Web fallback: heuristic triggers → Tavily search (top snippets appended).
+- Evaluation mode (`appWithEvaluation.py`): synthetic QA generation + automatic grading (`QAGenerateChain`, `QAEvalChain`).
+- Clean environment management (.venv ignored from git; accidental tracking removed).
 
-### Why `langchain_classic` Imports?
-Your installed LangChain distribution separates classic modules into `langchain_classic`. The original code used `from langchain.chains...` which failed (module missing). Imports were updated to:
+---
+
+## 3. Tech Stack
+| Layer | Tools |
+|-------|-------|
+| UI | Streamlit |
+| LLM / Embeddings | Google Gemini (Flash + Embedding) |
+| Retrieval | Chroma Vector Store |
+| Orchestration | LangChain Classic modules |
+| Web Search | Tavily API |
+| Document Parsing | PyPDF / LangChain loaders |
+| Utilities | `python-dotenv`, `nest-asyncio` |
+
+Why `langchain_classic`? Current LangChain distribution splits classic abstractions (chains, prompts, memory) into a separate namespace. Imports updated accordingly to avoid runtime import errors.
+
+---
+
+## 4. Architecture Flow
+1. Upload PDFs → load & chunk.
+2. Generate embeddings → store in Chroma.
+3. User query + history → retrieval (k=3) → prompt assembly.
+4. Gemini LLM answers.
+5. Heuristics (answer length / low‑confidence phrases) → optional Tavily search enrichment.
+6. Evaluation mode: generate QA pairs → run chain → grade responses.
+
+Pseudo Diagram:
 ```
-from langchain_classic.chains.conversational_retrieval.base import ConversationalRetrievalChain
-from langchain_classic.memory import ConversationBufferMemory
-from langchain_classic.text_splitter import RecursiveCharacterTextSplitter
-from langchain_classic.prompts import PromptTemplate
-from langchain_classic.evaluation.qa import QAGenerateChain, QAEvalChain  # in evaluation variant
+PDFs ─► Loader ─► Chunker ─► Embeddings ─► Chroma ─► Retriever ─► Prompt ─► Gemini
+                                                  │                         │
+                                                  └──── Memory ◄────────────┘
+                                 (Heuristic Failure) ─► Tavily Search ─► Merge Snippet
+                         (Evaluation) ─► QA Generator ─► Chain ─► Grader ─► Scores
 ```
-If you prefer older import paths, pin an earlier LangChain version (pre‑1.0 refactor) and revert these changes.
 
-## 🛠 Setup (Windows PowerShell)
+---
+
+## 5. Skills Demonstrated
+- RAG pipeline engineering & retrieval tuning.
+- Prompt composition & conversational context injection.
+- Fallback strategy design (quality heuristics → external search).
+- Automated evaluation scaffolding (synthetic data + grading loop).
+- Dependency / environment management & refactor for breaking API changes.
+- Git hygiene (removal of accidentally tracked virtual environment).
+
+---
+
+## 6. Repository Structure
+```
+app.py                 # Main Streamlit RAG assistant
+appWithEvaluation.py   # Adds QA generation + grading UI section
+requirements.txt       # Dependencies
+README.md              # Project documentation (this file)
+chroma_db/             # Local Chroma persistence (ignored if reconfigured)
+data/                  # (Optional) Sample documents location
+.venv/                 # Virtual environment (ignored)
+```
+
+Legacy experimental files (`app1.py`, `app2.py`) were removed to reduce noise.
+
+---
+
+## 7. Quick Start (Windows PowerShell)
 ```powershell
-# Clone (replace path as needed)
-git clone <repo-url> "HealthcareAssistant"
+git clone <REPO_URL> HealthcareAssistant
 cd HealthcareAssistant
-
-# Create virtual environment (if not already present)
 python -m venv .venv
-
-# Activate
 & .\.venv\Scripts\Activate.ps1
-
-# Install dependencies
 pip install -r requirements.txt
-
-# Create .env file (see sample below)
-notepad .env
-```
-
-## ▶️ Run the App
-Choose one variant (standard recommended):
-```powershell
+notepad .env   # add keys (see below)
 & .\.venv\Scripts\python.exe -m streamlit run app.py
 ```
-Alternative variants:
+Open the printed local URL (default http://localhost:8501).
+
+Evaluation mode:
 ```powershell
-& .\.venv\Scripts\python.exe -m streamlit run app2.py
-& .\.venv\Scripts\python.exe -m streamlit run app1.py
 & .\.venv\Scripts\python.exe -m streamlit run appWithEvaluation.py
 ```
-Then open the displayed Local URL (default `http://localhost:8501`).
 
-## 📁 Using the Assistant
-1. Start the app.
-2. Upload one or more PDF medical references.
-3. Wait for “Processing documents…” spinner to finish (chunks + embeddings build).
-4. Ask a question in the chat input (e.g., “What are the steps for adult CPR?”).
-5. If the model’s initial response is weak, a web supplement is appended.
-6. For evaluation variant: Scroll down after a few interactions to view auto‑generated QA grading.
+---
 
-## 🌐 Web Fallback Heuristics
-Triggers when answer is:
-- Too short (< ~30 chars) or empty.
-- Contains phrases like “I don’t know”, “no information”, “cannot access the internet”, etc.
-If triggered, a Tavily search (`max_results=3`) runs; top result snippet is appended under “Web Supplement”.
-
-## 🔒 Environment Variables (`.env`)
-Create a `.env` file in the project root:
-```
-GOOGLE_API_KEY=your_google_api_key_here
-TAVILY_API_KEY=your_tavily_api_key_here
-# Optional (for LangSmith tracing / analytics)
+## 8. Environment Variables (.env)
+```dotenv
+GOOGLE_API_KEY=your_google_api_key
+TAVILY_API_KEY=your_tavily_api_key
+# Optional tracing
 LANGCHAIN_TRACING_V2=true
-LANGCHAIN_API_KEY=your_langsmith_api_key_here
-# Optional custom port for Streamlit
-# STREAMLIT_SERVER_PORT=8501
+LANGCHAIN_API_KEY=your_langsmith_api_key
 ```
-Both keys must be valid; Tavily key absence will show an error banner. Google API key must have access to Gemini 1.5 Flash and embeddings.
+Gemini key must have access to chat + embeddings. Tavily key required for fallback enrichment.
 
-## 🧪 Evaluation Mode (`appWithEvaluation.py`)
-Adds:
-- `is_valid_chunk` filtering to avoid empty / trivial segments.
-- Generates synthetic QA examples from first few document chunks.
-- Runs retrieval chain per example.
-- Grades predictions using `QAEvalChain`.
-Output shown in a results section (reference answer vs model prediction vs grade).
+---
 
-## ❗ Limitations
-- Not a substitute for professional medical expertise.
-- Retrieval quality depends on PDF clarity and chunking.
-- Web fallback gives snippet, not full real‑time verified medical guidance.
-- No persistent database; embeddings rebuilt each session.
+## 9. Usage Workflow
+1. Launch app.
+2. Upload one or more trusted medical PDFs.
+3. Wait for embedding build (spinner).
+4. Ask questions conversationally (follow‑ups leverage memory).
+5. If answer flagged as weak, appended “Web Supplement” from Tavily.
+6. (Evaluation mode) Scroll to results section for generated QA pairs and grading metrics.
 
-## 🔄 Possible Improvements
-- Add caching / persistent Chroma directory.
-- Add source document citation UI (currently suppressed by `return_source_documents=False`).
-- Provide selectable model/temperature controls.
-- Integrate guardrails / medical safety filters.
-- Add GPU acceleration (if using heavy embedding models later).
+Heuristic triggers (simplified): very short output OR phrases like “I don’t know”.
 
-## 🧹 Maintenance / Version Pinning
-For more deterministic behavior, you may optionally pin versions in `requirements.txt` (example):
-```
+---
+
+## 10. Evaluation Mode Details
+Adds chunk validity filter, synthetic QA generation, retrieval run, and grading (reference vs prediction) for rapid qualitative feedback. Useful to gauge coverage and identify weak retrieval segments early.
+
+---
+
+## 11. Safety & Limitations
+- Not a diagnostic or emergency decision system.
+- Content quality depends on source PDFs (format / clarity).
+- No persistent long‑term knowledge base (embeddings rebuilt each session by default).
+- Web enrichment provides snippets, not vetted clinical review.
+
+Future safety improvements could include medical disclaimer injection per answer, confidence scoring, and integration with vetted guideline APIs.
+
+---
+
+## 12. Roadmap / Potential Enhancements
+- Persistent vector store & incremental updates.
+- Source citation panel (show chunk origins).
+- Adjustable retrieval depth & temperature controls.
+- Lightweight guardrail / filtering layer (contraindications, hallucination flags).
+- Usage metrics dashboard (session length, fallback frequency).
+- Alternative embedding models for offline mode.
+
+---
+
+## 13. Version / Maintenance Notes
+Refactored imports to `langchain_classic` due to package restructuring. Pin versions if reproducibility is critical.
+Example pinned set:
+```text
 streamlit==1.51.0
 langchain==1.0.8
 langchain-community==0.4.1
@@ -154,29 +173,34 @@ nest-asyncio==1.6.0
 pypdf==6.4.0
 tavily-python==0.7.13
 ```
-If you do this and revert to legacy imports you may need to re‑test compatibility.
-
-## 💬 Example Interaction
-```
-User: What should I do first when someone is unconscious?
-Assistant: (Retrieves from uploaded first aid manual) First assess scene safety, then check responsiveness...
-... (If weak) + Web Supplement: [Article Title] (url) snippet...
-```
-
-## ✅ Quick Start (Compressed)
-```powershell
-git clone <repo-url>
-cd <repo>
-python -m venv .venv
-& .\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-echo GOOGLE_API_KEY=xxx > .env
-echo TAVILY_API_KEY=yyy >> .env
-& .\.venv\Scripts\python.exe -m streamlit run app.py
-```
-
-## ⚖️ License
-No explicit license included in repository snapshot. Add one (e.g., MIT) if you plan to share/distribute.
 
 ---
-Feel free to request enhancements (persistent storage, multi‑PDF metadata, safety filters, etc.).
+
+## 14. Example Interaction
+```
+User: What are the first steps in adult CPR?
+Assistant: (Grounded response using uploaded PDF context...)
+Web Supplement (if triggered): <title> <snippet>
+```
+
+---
+
+## 15. Project Status
+✅ Core functionality working (PDF → RAG → conversation → fallback).
+⚠️ Embedding quota may hit limits on free tier (Gemini embeddings). Consider caching or alternative models.
+🧪 Evaluation prototype active.
+
+---
+
+## 16. Contributing / License
+No license currently declared. Add MIT / Apache‑2.0 before external distribution. Contributions welcome via PR once licensed.
+
+---
+
+## 17. Contact
+For questions or collaboration: open an issue or reach out via GitHub profile.
+
+---
+
+If you would like a live demo, deployment guide, or expanded evaluation metrics, feel free to request them.
+

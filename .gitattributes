@@ -1,0 +1,14 @@
+# Normalize LF line endings for source code
+*.py text eol=lf
+*.md text eol=lf
+*.txt text eol=lf
+*.json text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+
+# Keep Windows-native endings for Windows scripts
+*.bat text eol=crlf
+*.ps1 text eol=crlf
+
+# Do not perform line ending normalization inside virtual environment
+.venv/** -text
