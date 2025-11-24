@@ -2,14 +2,16 @@ import os
 import streamlit as st
 import tempfile
 from dotenv import load_dotenv
-from langchain.chains.conversational_retrieval.base import ConversationalRetrievalChain
-from langchain.memory import ConversationBufferMemory
+from langchain_classic.chains.conversational_retrieval.base import ConversationalRetrievalChain
+from langchain_classic.memory import ConversationBufferMemory
 from langchain_community.vectorstores import Chroma
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_classic.text_splitter import RecursiveCharacterTextSplitter
 from langchain_tavily import TavilySearch
-from langchain.prompts import PromptTemplate
+from langchain_classic.prompts import PromptTemplate
+import nest_asyncio  # Add this import
+nest_asyncio.apply()  # Apply the patch to allow nested event loops
 # Load environment variables
 load_dotenv()
 os.environ["GOOGLE_API_KEY"] = os.getenv("GOOGLE_API_KEY")
@@ -23,7 +25,9 @@ st.set_page_config(page_title="🩺 Health Assistant Chatbot")
 st.title("🩺 Healthcare & First Aid Assistant")
 
 # Initialize LLM
-llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash", temperature=0.3)
+llm = ChatGoogleGenerativeAI(
+    model="gemini-2.5-flash",
+    temperature=0.3)
 
 # Prompt template with required input variables
 prompt_template = """You are an intelligent, friendly, and highly helpful medical assistant.
@@ -126,6 +130,7 @@ elif "retriever" in st.session_state:
 
     def search_web_fallback(query: str):
         results = tavily_tool.invoke({"query": query})
+        print("result web:", results)
         if "results" in results and results["results"]:
             top = results["results"][0]
             return f"🌐 Web Result: [{top['title']}]({top['url']})\n{top['content'][:500]}..."
