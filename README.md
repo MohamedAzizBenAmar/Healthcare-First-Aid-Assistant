@@ -10,7 +10,7 @@ Conversational Retrieval‑Augmented Generation (RAG) app for healthcare & first
 
 ---
 
-## 1. Why This Project Matters (Recruiter Snapshot)
+## 1. Why This Project Matters
 - Demonstrates end‑to‑end RAG design (ingestion → chunking → embedding → retrieval → conversation → fallback search).
 - Shows practical use of Google Gemini (chat + embeddings) integrated with LangChain Classic.
 - Implements quality heuristics and dynamic search fallback (Tavily) for robustness.
